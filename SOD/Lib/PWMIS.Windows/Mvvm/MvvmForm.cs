@@ -10,14 +10,23 @@ using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
 
+
 namespace PWMIS.Windows.Mvvm
 {
     /// <summary>
     /// MVVM 窗体基类，如果需要在SOD Windows数据窗体上实现MVVM效果，请继承本类。
     /// </summary>
-    public partial class MvvmForm : Form
+    public partial class MvvmForm : Form, IMvvmForm
     {
+        /// <summary>
+        /// 命令方法
+        /// </summary>
         public delegate void CommandMethod();
+        /// <summary>
+        /// 带参数的命令方法
+        /// </summary>
+        /// <typeparam name="T">参数类型</typeparam>
+        /// <param name="para">参数</param>
         public delegate void CommandMethod<T>(T para);
 
         //private Dictionary<object, Delegate> dictCommand; //CommandMethod
@@ -59,10 +68,9 @@ namespace PWMIS.Windows.Mvvm
         /// 对数据控件实现双向绑定
         /// </summary>
         /// <param name="controls">要搜索数据控件的窗体控件集合</param>
-        public void BindDataControls(Control.ControlCollection controls)
+        public void BindDataControls(List<IDataControl> controls)
         {
-            var dataControls = MyWinForm.GetIBControls(controls);
-            foreach (IDataControl control in dataControls)
+            foreach (IDataControl control in controls)
             {
                 //control.LinkObject 这里都是 "DataContext"
                 object dataSource = GetInstanceByMemberName(control.LinkObject);
@@ -155,9 +163,12 @@ namespace PWMIS.Windows.Mvvm
                             try
                             {
                                 ICommandControl cmdCtr = control as ICommandControl;
-                                object paraSource = GetInstanceByMemberName(cmdCtr.ParameterObject);
-                                string[] paraPropNames = cmdCtr.ParameterProperty.Split('.');
-                                paraValue = GetPropertyValue(paraSource, paraPropNames);
+                                if (cmdCtr.ParameterObject != null && cmdCtr.ParameterProperty != null)
+                                {
+                                    object paraSource = GetInstanceByMemberName(cmdCtr.ParameterObject);
+                                    string[] paraPropNames = cmdCtr.ParameterProperty.Split('.');
+                                    paraValue = GetPropertyValue(paraSource, paraPropNames);
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -315,13 +326,36 @@ namespace PWMIS.Windows.Mvvm
             throw new Exception("在对象" + t.Name + " 中没有找到名为 " + propNames[0] + " 的字段或者属性！");
         }
 
+        /// <summary>
+        /// 用于解决【线程间操作无效】的问题
+        /// </summary>
+        /// <typeparam name="T">控件或者其它对象类型</typeparam>
+        /// <param name="ctl">对象实例</param>
+        /// <param name="action">要对控件或者对象执行的方法，在此方法内对控件或者绑定的数据对象进行修改</param>
+        public void FormInvoke<T>(T ctl, Action<T> action)
+        {
+            if (InvokeRequired)
+                Invoke(new MyAction(() => action(ctl)));
+            else
+                action(ctl);
+        }
+
+        /// <summary>
+        /// 用于解决【线程间操作无效】的问题
+        /// </summary>
+        /// <param name="action">自定义的方法，在此方法内对控件或者绑定的数据对象进行修改</param>
+        public void FormInvoke(MyAction action)
+        {
+            if (InvokeRequired)
+                Invoke(new MyAction(() => action()));
+            else
+                action();
+        }
+
         private void MvvmForm_Load(object sender, EventArgs e)
         {
             var ibControls = MyWinForm.GetIBControls(this.Controls);
-            ControlCollection coll = new ControlCollection(this);
-            foreach(IDataControl ctr in ibControls)
-                coll.Add(ctr as Control);
-            BindDataControls(coll);
+            BindDataControls(ibControls);
         }
     }
 }
