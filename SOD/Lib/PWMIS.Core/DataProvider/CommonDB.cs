@@ -769,7 +769,7 @@ namespace PWMIS.DataProvider.Data
             }
         }
 
-        private bool OnCommandExecuting(ref string sql, CommandType commandType, IDataParameter[] parameters)
+        protected bool OnCommandExecuting(ref string sql, CommandType commandType, IDataParameter[] parameters)
         {
             if (commandHandles != null)
             {
@@ -786,7 +786,7 @@ namespace PWMIS.DataProvider.Data
             return true;
         }
 
-        private void OnCommandExecuteError(IDbCommand cmd, string errorMessage)
+        protected void OnCommandExecuteError(IDbCommand cmd, string errorMessage)
         {
             if (commandHandles != null)
             {
@@ -798,7 +798,7 @@ namespace PWMIS.DataProvider.Data
             }
         }
 
-        private void OnCommandExected(IDbCommand cmd, int recordAffected)
+        protected void OnCommandExected(IDbCommand cmd, int recordAffected)
         {
             if (commandHandles != null)
             {
@@ -982,7 +982,6 @@ namespace PWMIS.DataProvider.Data
             IDbCommand cmd = conn.CreateCommand();
             CompleteCommand(cmd,  SQL,  commandType,  parameters);
 
-            CommandLog cmdLog = new CommandLog(true);
             int count = 0;
             object result = null;
             try
@@ -1091,7 +1090,6 @@ namespace PWMIS.DataProvider.Data
             CompleteCommand(cmd,  SQL,  commandType,  parameters);
             IDataAdapter ada = GetDataAdapter(cmd);
 
-            CommandLog cmdLog = new CommandLog(true);
             DataSet ds = new DataSet();
             int count = 0;
             try
@@ -1138,8 +1136,11 @@ namespace PWMIS.DataProvider.Data
 
             try
             {
-                //使用MyDB.Intance 连接不能及时关闭？待测试
-                ada.Fill(schemaDataSet);//FillSchema(ds,SchemaType.Mapped )
+                string tableName = "Table1";
+                if (schemaDataSet.Tables.Count > 0)
+                    tableName = schemaDataSet.Tables[0].TableName;
+                ada.Fill(schemaDataSet);
+                schemaDataSet.Tables[0].TableName = tableName;
             }
             catch (Exception ex)
             {
